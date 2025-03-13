@@ -1,49 +1,37 @@
 package com.example.api
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(navController: NavController) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val email = remember { mutableStateOf("") }
+    val password = remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp)
-    ) {
-        Text(text = "Login", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text("Username") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        TextField(value = email.value, onValueChange = { email.value = it }, label = { Text("Email") })
         Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
+        TextField(value = password.value, onValueChange = { password.value = it }, label = { Text("Password") })
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
-            onClick = {
-                if (username.isNotEmpty() && password.isNotEmpty()) {
-                    navController.navigate("welcome/$username")
+        Button(onClick = {
+            scope.launch {
+                val response = RetrofitInstance.api.login(LoginRequest(email.value, password.value))
+                if (response.isSuccessful) {
+                    val token = response.body()?.token ?: return@launch
+                    navController.navigate("welcome/$token")
+                } else {
+                    Log.e("LoginScreen", "Login failed")
                 }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
+            }
+        }) {
             Text("Login")
         }
     }

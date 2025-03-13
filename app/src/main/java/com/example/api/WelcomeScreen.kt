@@ -1,8 +1,13 @@
 package com.example.api
 
+
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.Priority
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+
 import android.annotation.SuppressLint
-import android.content.Context
-import android.location.Location
 import android.os.Looper
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -11,26 +16,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.location.*
+import kotlinx.coroutines.launch
 
 @SuppressLint("MissingPermission")
 @Composable
-fun WelcomeScreen(username: String) {
+fun WelcomeScreen(token: String) {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    val scope = rememberCoroutineScope()
     var locationText by remember { mutableStateOf("Fetching location...") }
 
-    // Function to get location
     val getLocation = {
-        val locationRequest = LocationRequest.create().apply {
-            interval = 15000 // 15 seconds
-            fastestInterval = 15000
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 15000) // ✅ Fixed `Builder`
+            .build()
 
         val locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 for (location in locationResult.locations) {
-                    locationText = "Lat: ${location.latitude}, Lng: ${location.longitude}"
+                    val lat = location.latitude
+                    val lng = location.longitude
+                    locationText = "Lat: $lat, Lng: $lng"
+
+                    scope.launch {
+                        RetrofitInstance.api.sendLocation(LocationRequest(token, lat, lng)) // ✅ Ensure API is correct
+                    }
                 }
             }
         }
@@ -38,17 +47,12 @@ fun WelcomeScreen(username: String) {
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
     }
 
-    // Start fetching location when screen loads
-    LaunchedEffect(Unit) {
-        getLocation()
-    }
+    LaunchedEffect(Unit) { getLocation() }
 
-    // UI Layout
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp)
-    ) {
-        Text(text = "Welcome, $username!", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = locationText, style = MaterialTheme.typography.bodyLarge)
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(text = locationText)
     }
 }
+
+// ✅ Custom data class for sending location to backend
+data class LocationData(val token: String, val lat: Double, val lng: Double)
